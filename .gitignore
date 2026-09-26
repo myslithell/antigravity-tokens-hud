@@ -1,0 +1,14 @@
+# OS & Logs
+.DS_Store
+*.log
+*.err.log
+*.tmp
+
+# Dependencies
+node_modules/
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
