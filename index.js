@@ -26,6 +26,7 @@ const CONFIG_FILE = path.join(__dirname, "config.json");
 let currentWs = null;
 let currentPort = null;
 let isUpdating = false;
+let lastUpdateAttempt = 0;
 
 function getConfigLang() {
   try {
@@ -61,7 +62,7 @@ async function findAntigravityPage(port) {
 
 function fetchTokenStats() {
   return new Promise((resolve) => {
-    execFile("python3", [TOKEN_STATS_SCRIPT, "--json"], (err, stdout) => {
+    execFile("python3", [TOKEN_STATS_SCRIPT, "--json"], { timeout: 3000 }, (err, stdout) => {
       if (err || !stdout) {
         resolve(null);
         return;
@@ -77,22 +78,62 @@ function fetchTokenStats() {
 
 function connectWebSocket(wsUrl) {
   return new Promise((resolve) => {
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        try { ws.close(); } catch (_) {}
+        resolve(null);
+      }
+    }, 2000);
+
+    let ws = null;
     try {
-      const ws = new WebSocket(wsUrl);
-      ws.onopen = () => resolve(ws);
-      ws.onerror = () => resolve(null);
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(ws);
+        }
+      };
+      ws.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      };
       ws.onclose = () => {
         if (currentWs === ws) currentWs = null;
       };
     } catch (_) {
-      resolve(null);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
     }
   });
 }
 
 async function updateLoop() {
-  if (isUpdating) return;
+  const now = Date.now();
+  if (isUpdating) {
+    // Watchdog: If update stuck for more than 4 seconds, force reset
+    if (now - lastUpdateAttempt > 4000) {
+      if (currentWs) {
+        try { currentWs.close(); } catch (_) {}
+        currentWs = null;
+      }
+      isUpdating = false;
+    } else {
+      return;
+    }
+  }
+
   isUpdating = true;
+  lastUpdateAttempt = now;
 
   try {
     const info = getDevToolsInfo();
@@ -154,6 +195,6 @@ async function updateLoop() {
   }
 }
 
-console.log("[Antigravity Tokens HUD] Daemon started. Monitoring DevTools on port...");
+console.log("[Antigravity Tokens HUD] Daemon running. Monitoring Antigravity DevTools...");
 setInterval(updateLoop, 1500);
 updateLoop();

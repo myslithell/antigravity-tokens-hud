@@ -72,7 +72,7 @@ def collect_metrics(current_conv_id=None):
     for db_path in db_files:
         sess_id = os.path.basename(db_path).replace(".db", "")
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
             c = conn.cursor()
             
             step_times = {}

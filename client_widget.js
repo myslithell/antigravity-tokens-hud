@@ -1,6 +1,21 @@
 (() => {
   function getActiveConvId() {
     try {
+      // 1. Check main chat view container (directly in DOM)
+      const mainChat = document.querySelector("div:not([data-testid=\"conversation-row-sidebar\"])[data-cascade-id]");
+      if (mainChat) {
+        const id = mainChat.getAttribute("data-cascade-id");
+        if (id) return id;
+      }
+
+      // 2. Check currently selected row in sidebar
+      const selRow = document.querySelector("[data-selected=\"true\"]");
+      if (selRow) {
+        const id = selRow.getAttribute("data-cascade-id");
+        if (id) return id;
+      }
+
+      // 3. Check window.location.pathname (/c/<id>)
       const parts = window.location.pathname.split("/");
       const idx = parts.indexOf("c");
       if (idx !== -1 && parts[idx + 1]) {
@@ -235,13 +250,17 @@
 
   if (!window.__AGY_LISTENER_SET__) {
     window.__AGY_LISTENER_SET__ = true;
+    let lastId = null;
     let lastPath = window.location.pathname;
     setInterval(() => {
-      if (window.location.pathname !== lastPath) {
-        lastPath = window.location.pathname;
+      const currentId = getActiveConvId();
+      const currentPath = window.location.pathname;
+      if (currentId !== lastId || currentPath !== lastPath) {
+        lastId = currentId;
+        lastPath = currentPath;
         if (window.__AGY_RENDER__) window.__AGY_RENDER__();
       }
-    }, 150);
+    }, 200);
   }
 
   if (window.__AGY_RENDER__) {
