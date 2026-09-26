@@ -1,7 +1,7 @@
 (() => {
   function getActiveConvId() {
     try {
-      // 1. Check main chat view container (directly in DOM)
+      // 1. Check main chat view container in DOM
       const mainChat = document.querySelector("div:not([data-testid=\"conversation-row-sidebar\"])[data-cascade-id]");
       if (mainChat) {
         const id = mainChat.getAttribute("data-cascade-id");
@@ -20,6 +20,13 @@
       const idx = parts.indexOf("c");
       if (idx !== -1 && parts[idx + 1]) {
         return parts[idx + 1];
+      }
+
+      // 4. Any element with data-cascade-id inside main/chat area
+      const anyChat = document.querySelector("[data-cascade-id]");
+      if (anyChat) {
+        const id = anyChat.getAttribute("data-cascade-id");
+        if (id) return id;
       }
     } catch (_) {}
     return null;
@@ -76,7 +83,10 @@
         cur = cur.return;
       }
       if (!client) return null;
-      const res = await client.retrieveUserQuotaSummary({});
+      const res = await Promise.race([
+        client.retrieveUserQuotaSummary({}),
+        new Promise(r => setTimeout(() => r(null), 2000))
+      ]);
       return res?.response?.groups || null;
     } catch (e) {
       return null;
@@ -162,6 +172,8 @@
     if (data.sessions && activeId && data.sessions[activeId]) {
       session = data.sessions[activeId];
     } else if (activeId && data.current_session && data.current_session.session_id === activeId) {
+      session = data.current_session;
+    } else if (!activeId && data.current_session) {
       session = data.current_session;
     } else {
       session = {
@@ -260,7 +272,7 @@
         lastPath = currentPath;
         if (window.__AGY_RENDER__) window.__AGY_RENDER__();
       }
-    }, 200);
+    }, 150);
   }
 
   if (window.__AGY_RENDER__) {

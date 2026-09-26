@@ -27,6 +27,7 @@ let currentWs = null;
 let currentPort = null;
 let isUpdating = false;
 let lastUpdateAttempt = 0;
+let clientScriptInjected = false;
 
 function getConfigLang() {
   try {
@@ -94,8 +95,12 @@ function connectWebSocket(wsUrl) {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
+          clientScriptInjected = false;
           resolve(ws);
         }
+      };
+      ws.onmessage = () => {
+        // Drain incoming messages to avoid TCP buffer congestion
       };
       ws.onerror = () => {
         if (!resolved) {
@@ -105,7 +110,10 @@ function connectWebSocket(wsUrl) {
         }
       };
       ws.onclose = () => {
-        if (currentWs === ws) currentWs = null;
+        if (currentWs === ws) {
+          currentWs = null;
+          clientScriptInjected = false;
+        }
       };
     } catch (_) {
       if (!resolved) {
@@ -120,11 +128,11 @@ function connectWebSocket(wsUrl) {
 async function updateLoop() {
   const now = Date.now();
   if (isUpdating) {
-    // Watchdog: If update stuck for more than 4 seconds, force reset
     if (now - lastUpdateAttempt > 4000) {
       if (currentWs) {
         try { currentWs.close(); } catch (_) {}
         currentWs = null;
+        clientScriptInjected = false;
       }
       isUpdating = false;
     } else {
@@ -141,6 +149,7 @@ async function updateLoop() {
       if (currentWs) {
         try { currentWs.close(); } catch (_) {}
         currentWs = null;
+        clientScriptInjected = false;
       }
       isUpdating = false;
       return;
@@ -170,11 +179,25 @@ async function updateLoop() {
 
       const lang = getConfigLang();
       const payload = JSON.stringify(stats);
-      const evalCode = `
-        window.__AGY_DATA__ = ${payload};
-        window.__AGY_LANG__ = ${JSON.stringify(lang)};
-        ${clientScript}
-      `;
+      let evalCode = "";
+      if (!clientScriptInjected) {
+        evalCode = `
+          window.__AGY_DATA__ = ${payload};
+          window.__AGY_LANG__ = ${JSON.stringify(lang)};
+          ${clientScript}
+        `;
+        clientScriptInjected = true;
+      } else {
+        evalCode = `
+          window.__AGY_DATA__ = ${payload};
+          window.__AGY_LANG__ = ${JSON.stringify(lang)};
+          if (window.__AGY_RENDER__) {
+            window.__AGY_RENDER__();
+          } else {
+            ${clientScript}
+          }
+        `;
+      }
 
       currentWs.send(JSON.stringify({
         id: Date.now(),
@@ -189,6 +212,7 @@ async function updateLoop() {
     if (currentWs) {
       try { currentWs.close(); } catch (_) {}
       currentWs = null;
+      clientScriptInjected = false;
     }
   } finally {
     isUpdating = false;
