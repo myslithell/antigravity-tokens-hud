@@ -21,10 +21,21 @@ function getDevToolsFilePath() {
 const DEVTOOLS_FILE = getDevToolsFilePath();
 const TOKEN_STATS_SCRIPT = path.join(__dirname, "token_stats.py");
 const CLIENT_SCRIPT_PATH = path.join(__dirname, "client_widget.js");
+const CONFIG_FILE = path.join(__dirname, "config.json");
 
 let currentWs = null;
 let currentPort = null;
 let isUpdating = false;
+
+function getConfigLang() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+      if (cfg && cfg.lang) return cfg.lang;
+    }
+  } catch (_) {}
+  return "en";
+}
 
 function getDevToolsInfo() {
   if (!fs.existsSync(DEVTOOLS_FILE)) return null;
@@ -116,9 +127,11 @@ async function updateLoop() {
         clientScript = fs.readFileSync(CLIENT_SCRIPT_PATH, "utf8");
       } catch (_) {}
 
+      const lang = getConfigLang();
       const payload = JSON.stringify(stats);
       const evalCode = `
         window.__AGY_DATA__ = ${payload};
+        window.__AGY_LANG__ = ${JSON.stringify(lang)};
         ${clientScript}
       `;
 

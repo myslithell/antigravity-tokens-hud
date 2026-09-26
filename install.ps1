@@ -61,6 +61,9 @@ foreach ($f in $files) {
     }
 }
 
+# Set English config
+Set-Content -Path "$InstallDir\config.json" -Value '{"lang":"en"}'
+
 # 5. Autostart via Windows Startup
 Write-Host "⚙️ Configuring Windows Startup..." -ForegroundColor Yellow
 $startupFolder = [Environment]::GetFolderPath("Startup")

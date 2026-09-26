@@ -32,23 +32,23 @@
 
 ---
 
-## 🚀 Быстрая установка в 1 команду
+## 🚀 Быстрая установка в 1 команду (Русская версия)
 
 ### macOS / Linux
 
 Вставьте в ваш терминал:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/install-ru.sh | bash
 ```
 
 ### Windows (PowerShell)
 
 Вставьте в окно PowerShell:
 ```powershell
-irm https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/install-ru.ps1 | iex
 ```
 
-> **Готово!** Откройте Antigravity 2.0 — виджет уже работает над кнопкой Settings. Демон автоматически запускается вместе с системой в фоне.
+> **Готово!** Откройте Antigravity 2.0 — виджет уже работает над кнопкой Settings на русском языке. Клик по виджету переключает язык (RU / EN) в реальном времени.
 
 ---
 
@@ -59,7 +59,7 @@ irm https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/ins
 ```bash
 git clone https://github.com/myslithell/antigravity-tokens-hud.git
 cd antigravity-tokens-hud
-bash install.sh
+bash install-ru.sh
 ```
 
 ---

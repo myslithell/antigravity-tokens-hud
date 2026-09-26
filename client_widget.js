@@ -1,6 +1,4 @@
 (() => {
-  const isRu = typeof navigator !== "undefined" && navigator.language && navigator.language.startsWith("ru");
-
   function getActiveConvId() {
     try {
       const parts = window.location.pathname.split("/");
@@ -33,7 +31,7 @@
     return n + "";
   }
 
-  function formatResetTime(seconds) {
+  function formatResetTime(seconds, isRu) {
     if (!seconds) return "";
     const sec = parseInt(seconds, 10);
     if (isNaN(sec)) return "";
@@ -93,6 +91,15 @@
     );
     if (!settingsBtn) return;
 
+    // Language resolution: localStorage > window.__AGY_LANG__ > default 'en'
+    let currentLang = "en";
+    try {
+      currentLang = localStorage.getItem("agy_hud_lang") || window.__AGY_LANG__ || "en";
+    } catch (_) {
+      currentLang = window.__AGY_LANG__ || "en";
+    }
+    const isRu = currentLang === "ru";
+
     if (!container) {
       container = document.createElement("div");
       container.id = "antigravity-token-widget";
@@ -107,7 +114,7 @@
         "line-height: 1.3",
         "color: rgba(255, 255, 255, 0.85)",
         "user-select: none",
-        "cursor: default",
+        "cursor: pointer",
         "transition: border-color 0.2s ease, background 0.2s ease"
       ].join("; ");
 
@@ -122,6 +129,17 @@
 
       settingsBtn.parentElement.insertBefore(container, settingsBtn);
     }
+
+    container.style.cursor = "pointer";
+    container.onclick = (e) => {
+      e.stopPropagation();
+      const current = localStorage.getItem("agy_hud_lang") || window.__AGY_LANG__ || "en";
+      const nextLang = current === "ru" ? "en" : "ru";
+      try {
+        localStorage.setItem("agy_hud_lang", nextLang);
+      } catch (_) {}
+      if (window.__AGY_RENDER__) window.__AGY_RENDER__();
+    };
 
     // 1. Session Context from SQLite
     const activeId = getActiveConvId();
@@ -159,21 +177,28 @@
 
       if (hBucket?.remaining?.value != null) {
         fiveHourPct = Math.round(hBucket.remaining.value * 100);
-        fiveHourReset = formatResetTime(hBucket.resetTime?.seconds);
+        fiveHourReset = formatResetTime(hBucket.resetTime?.seconds, isRu);
       }
       if (wBucket?.remaining?.value != null) {
         weeklyPct = Math.round(wBucket.remaining.value * 100);
-        weeklyReset = formatResetTime(wBucket.resetTime?.seconds);
+        weeklyReset = formatResetTime(wBucket.resetTime?.seconds, isRu);
       }
     }
 
     const title5h = isRu ? "5-часовой" : "5-Hour";
     const titleWeekly = isRu ? "Недельный" : "Weekly";
-    const tip5h = isRu ? `Остаток 5-часового лимита: ${fiveHourPct}%` : `5-Hour limit remaining: ${fiveHourPct}%`;
-    const tipWeekly = isRu ? `Остаток недельного лимита: ${weeklyPct}%` : `Weekly limit remaining: ${weeklyPct}%`;
+    const tip5h = isRu
+      ? `Остаток 5-часового лимита: ${fiveHourPct}%${fiveHourReset ? ` (сброс через ${fiveHourReset})` : ""}`
+      : `5-Hour limit remaining: ${fiveHourPct}%${fiveHourReset ? ` (reset in ${fiveHourReset})` : ""}`;
+    const tipWeekly = isRu
+      ? `Остаток недельного лимита: ${weeklyPct}%${weeklyReset ? ` (сброс через ${weeklyReset})` : ""}`
+      : `Weekly limit remaining: ${weeklyPct}%${weeklyReset ? ` (reset in ${weeklyReset})` : ""}`;
+    const switchHint = isRu ? "Нажмите для переключения на English" : "Click to switch to Russian";
+
+    container.title = `${tip5h}\n${tipWeekly}\n(${switchHint})`;
 
     container.innerHTML = `
-      <!-- 1. Model & Context -->
+      <!-- 1. Model & Context (Наполняется слева направо) -->
       <div style="margin-bottom: 6px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
           <span style="font-weight: 600; color: #f1f5f9; font-size: 10.5px;">${modelName}</span>
@@ -184,8 +209,8 @@
         </div>
       </div>
 
-      <!-- 2. 5-Hour Limit Remaining -->
-      <div style="margin-bottom: 6px;" title="${tip5h}">
+      <!-- 2. 5-Hour Limit Remaining (Уменьшается справа налево) -->
+      <div style="margin-bottom: 6px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
           <span style="font-weight: 500; color: #94a3b8; font-size: 10px;">${title5h}</span>
           <span style="font-size: 9.5px; color: #94a3b8; font-weight: 500;">${fiveHourPct}% ${fiveHourReset ? `<span style="font-weight: 400; color: #64748b;">(${fiveHourReset})</span>` : ""}</span>
@@ -195,8 +220,8 @@
         </div>
       </div>
 
-      <!-- 3. Weekly Limit Remaining -->
-      <div title="${tipWeekly}">
+      <!-- 3. Weekly Limit Remaining (Уменьшается справа налево) -->
+      <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
           <span style="font-weight: 500; color: #94a3b8; font-size: 10px;">${titleWeekly}</span>
           <span style="font-size: 9.5px; color: #94a3b8; font-weight: 500;">${weeklyPct}% ${weeklyReset ? `<span style="font-weight: 400; color: #64748b;">(${weeklyReset})</span>` : ""}</span>
