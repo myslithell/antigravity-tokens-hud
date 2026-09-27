@@ -5,6 +5,11 @@ echo "🛑 Uninstalling Antigravity Tokens HUD..."
 INSTALL_DIR="$HOME/.antigravity-tokens-hud"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
+  OLD_PLIST="$HOME/Library/LaunchAgents/com.google.antigravity.token-widget.plist"
+  if [ -f "$OLD_PLIST" ]; then
+    launchctl unload "$OLD_PLIST" 2>/dev/null || true
+    rm -f "$OLD_PLIST"
+  fi
   PLIST_FILE="$HOME/Library/LaunchAgents/com.antigravity.tokens-hud.plist"
   if [ -f "$PLIST_FILE" ]; then
     launchctl unload "$PLIST_FILE" 2>/dev/null || true
@@ -23,6 +28,7 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
 fi
 
 # Kill any leftover running daemon process
+pkill -f "sidebar_widget.js" 2>/dev/null || true
 pkill -f "antigravity-tokens-hud/index.js" 2>/dev/null || true
 
 if [ -d "$INSTALL_DIR" ]; then

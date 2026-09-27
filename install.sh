@@ -202,7 +202,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   mkdir -p "$PLIST_DIR"
 
   # Unload previous version if running
+  launchctl unload "$PLIST_DIR/com.google.antigravity.token-widget.plist" 2>/dev/null || true
+  rm -f "$PLIST_DIR/com.google.antigravity.token-widget.plist" 2>/dev/null || true
   launchctl unload "$PLIST_FILE" 2>/dev/null || true
+  pkill -f "sidebar_widget.js" 2>/dev/null || true
+  pkill -f "antigravity-tokens-hud/index.js" 2>/dev/null || true
 
   cat <<EOF > "$PLIST_FILE"
 <?xml version="1.0" encoding="UTF-8"?>
