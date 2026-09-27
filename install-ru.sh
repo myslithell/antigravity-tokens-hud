@@ -34,33 +34,135 @@ if [ $IS_INSTALLED -eq 0 ]; then
 fi
 echo "✅ Antigravity 2.0 обнаружена."
 
-# 2. Проверка Node.js
+# 2. Проверка и автоматическая установка Node.js
 echo "🔍 Проверка Node.js..."
-if ! command -v node >/dev/null 2>&1; then
-  echo ""
-  echo "❌ Для работы требуется Node.js, но он не установлен!"
-  echo "👉 Установите Node.js (рекомендуется v18+): https://nodejs.org/"
-  if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
-    echo "💡 Или выполните: brew install node"
-  fi
-  echo ""
-  exit 1
-fi
-echo "✅ Node.js $(node -v) обнаружен."
+NEED_NODE_INSTALL=0
+NEED_NODE_UPDATE=0
 
-# 3. Проверка Python 3
-echo "🔍 Проверка Python 3..."
-if ! command -v python3 >/dev/null 2>&1; then
-  echo ""
-  echo "❌ Для работы требуется Python 3, но он не установлен!"
-  echo "👉 Установите Python 3: https://www.python.org/downloads/"
-  if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
-    echo "💡 Или выполните: brew install python3"
+if ! command -v node >/dev/null 2>&1; then
+  NEED_NODE_INSTALL=1
+else
+  NODE_VER=$(node -v | sed 's/v//' | cut -d'.' -f1)
+  if [ "$NODE_VER" -lt 18 ]; then
+    NEED_NODE_UPDATE=1
   fi
-  echo ""
+fi
+
+if [ $NEED_NODE_INSTALL -eq 1 ]; then
+  echo "⚠️ Node.js не установлен. Запуск автоматической установки..."
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "🍺 Установка Node.js через Homebrew..."
+      brew install node
+    else
+      echo "⬇️ Загрузка и распаковка портативного Node.js LTS..."
+      ARCH="$(uname -m)"
+      [ "$ARCH" = "x86_64" ] && ARCH="x64"
+      NODE_LTS="v20.18.0"
+      mkdir -p "$INSTALL_DIR/node"
+      curl -fsSL "https://nodejs.org/dist/$NODE_LTS/node-$NODE_LTS-darwin-$ARCH.tar.gz" | tar -xz -C "$INSTALL_DIR/node" --strip-components=1
+      export PATH="$INSTALL_DIR/node/bin:$PATH"
+    fi
+  elif [[ "$OSTYPE" == "linux"* ]]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update && sudo apt-get install -y nodejs npm || true
+    elif command -v dnf >/dev/null 2>&1; then
+      sudo dnf install -y nodejs || true
+    elif command -v pacman >/dev/null 2>&1; then
+      sudo pacman -Sy --noconfirm nodejs npm || true
+    fi
+    if ! command -v node >/dev/null 2>&1; then
+      ARCH="$(uname -m)"
+      [ "$ARCH" = "x86_64" ] && ARCH="x64"
+      [ "$ARCH" = "aarch64" ] && ARCH="arm64"
+      NODE_LTS="v20.18.0"
+      mkdir -p "$INSTALL_DIR/node"
+      curl -fsSL "https://nodejs.org/dist/$NODE_LTS/node-$NODE_LTS-linux-$ARCH.tar.gz" | tar -xz -C "$INSTALL_DIR/node" --strip-components=1
+      export PATH="$INSTALL_DIR/node/bin:$PATH"
+    fi
+  fi
+elif [ $NEED_NODE_UPDATE -eq 1 ]; then
+  echo "⚠️ Обнаружена устаревшая версия Node.js ($(node -v)). Для стабильной работы рекомендуется v18+."
+  REPLY="y"
+  if [ -e /dev/tty ]; then
+    read -p "Желаете обновить Node.js сейчас? [Y/n] " -r REPLY < /dev/tty || REPLY="y"
+  fi
+  if [[ "$REPLY" =~ ^[Yy]$ ]] || [ -z "$REPLY" ]; then
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
+      brew upgrade node || brew install node
+    else
+      echo "⬇️ Загрузка актуального Node.js LTS в изолированную директорию..."
+      ARCH="$(uname -m)"
+      [ "$ARCH" = "x86_64" ] && ARCH="x64"
+      NODE_LTS="v20.18.0"
+      mkdir -p "$INSTALL_DIR/node"
+      curl -fsSL "https://nodejs.org/dist/$NODE_LTS/node-$NODE_LTS-darwin-$ARCH.tar.gz" | tar -xz -C "$INSTALL_DIR/node" --strip-components=1
+      export PATH="$INSTALL_DIR/node/bin:$PATH"
+    fi
+  fi
+fi
+
+if ! command -v node >/dev/null 2>&1 && [ ! -f "$INSTALL_DIR/node/bin/node" ]; then
+  echo "❌ Не удалось автоматически установить Node.js. Пожалуйста, установите вручную: https://nodejs.org/"
   exit 1
 fi
-echo "✅ Python 3 $(python3 --version | cut -d' ' -f2) обнаружен."
+[ -f "$INSTALL_DIR/node/bin/node" ] && export PATH="$INSTALL_DIR/node/bin:$PATH"
+echo "✅ Node.js ($(node -v)) готов."
+
+# 3. Проверка и автоматическая установка Python 3
+echo "🔍 Проверка Python 3..."
+NEED_PY_INSTALL=0
+NEED_PY_UPDATE=0
+
+if ! command -v python3 >/dev/null 2>&1; then
+  NEED_PY_INSTALL=1
+else
+  PY_MAJOR=$(python3 -c "import sys; print(sys.version_info.major)" 2>/dev/null || echo "0")
+  PY_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)" 2>/dev/null || echo "0")
+  if [ "$PY_MAJOR" -lt 3 ] || ([ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 8 ]); then
+    NEED_PY_UPDATE=1
+  fi
+fi
+
+if [ $NEED_PY_INSTALL -eq 1 ]; then
+  echo "⚠️ Python 3 не установлен. Запуск автоматической установки..."
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "🍺 Установка Python 3 через Homebrew..."
+      brew install python3
+    else
+      echo "🍎 Запуск установки инструментов macOS (содержит python3)..."
+      xcode-select --install 2>/dev/null || true
+    fi
+  elif [[ "$OSTYPE" == "linux"* ]]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update && sudo apt-get install -y python3 || true
+    elif command -v dnf >/dev/null 2>&1; then
+      sudo dnf install -y python3 || true
+    elif command -v pacman >/dev/null 2>&1; then
+      sudo pacman -Sy --noconfirm python || true
+    fi
+  fi
+elif [ $NEED_PY_UPDATE -eq 1 ]; then
+  echo "⚠️ Обнаружена устаревшая версия Python ($(python3 --version 2>&1)). Рекомендуется 3.8+."
+  REPLY="y"
+  if [ -e /dev/tty ]; then
+    read -p "Желаете обновить Python 3 сейчас? [Y/n] " -r REPLY < /dev/tty || REPLY="y"
+  fi
+  if [[ "$REPLY" =~ ^[Yy]$ ]] || [ -z "$REPLY" ]; then
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
+      brew upgrade python3 || brew install python3
+    elif [[ "$OSTYPE" == "linux"* ]] && command -v apt-get >/dev/null 2>&1; then
+      sudo apt-get update && sudo apt-get install -y python3
+    fi
+  fi
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "❌ Не удалось автоматически установить Python 3. Пожалуйста, установите вручную: https://www.python.org/downloads/"
+  exit 1
+fi
+echo "✅ Python 3 ($(python3 --version | cut -d' ' -f2)) готов."
 
 # 4. Установка файлов
 echo "📦 Установка файлов в $INSTALL_DIR..."
@@ -124,7 +226,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.nvm/versions/node/$(node -v)/bin:$PATH</string>
+        <string>$INSTALL_DIR/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.nvm/versions/node/$(node -v 2>/dev/null)/bin:$PATH</string>
     </dict>
 </dict>
 </plist>
@@ -148,7 +250,7 @@ Type=simple
 ExecStart=$NODE_PATH $INSTALL_DIR/index.js
 Restart=always
 RestartSec=3
-Environment=PATH=/usr/local/bin:/usr/bin:/bin:$PATH
+Environment=PATH=$INSTALL_DIR/node/bin:/usr/local/bin:/usr/bin:/bin:$PATH
 
 [Install]
 WantedBy=default.target

@@ -27,8 +27,8 @@ Designed to be lightweight, distraction-free, and always visible where you need 
 ## 🎯 Requirements
 
 - **[Google Antigravity 2.0](https://antigravity.google/download)**
-- **Node.js** (v18 or higher)
-- **Python 3** (uses standard libraries only — zero pip dependencies)
+
+*(All necessary components — Node.js 18+ and Python 3 — are automatically verified and installed by the installer).*
 
 ---
 
