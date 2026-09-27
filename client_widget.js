@@ -1,28 +1,43 @@
 (() => {
   function getActiveConvId() {
     try {
-      // 1. Check main chat view container in DOM
+      // 1. TanStack Router state (official router of Antigravity 2.0)
+      if (window.__TSR_ROUTER__?.state) {
+        const matches = window.__TSR_ROUTER__.state.matches || [];
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const cid = matches[i]?.params?.cascadeId;
+          if (cid) return cid;
+        }
+        const pathname = window.__TSR_ROUTER__.state.location?.pathname || "";
+        const parts = pathname.split("/");
+        const idx = parts.indexOf("c");
+        if (idx !== -1 && parts[idx + 1]) {
+          return parts[idx + 1];
+        }
+      }
+
+      // 2. Main chat view container in DOM
       const mainChat = document.querySelector("div:not([data-testid=\"conversation-row-sidebar\"])[data-cascade-id]");
       if (mainChat) {
         const id = mainChat.getAttribute("data-cascade-id");
         if (id) return id;
       }
 
-      // 2. Check currently selected row in sidebar
-      const selRow = document.querySelector("[data-selected=\"true\"]");
+      // 3. Currently selected row in sidebar
+      const selRow = document.querySelector("[data-selected=\"true\"][data-cascade-id]") || document.querySelector("[data-selected=\"true\"]");
       if (selRow) {
         const id = selRow.getAttribute("data-cascade-id");
         if (id) return id;
       }
 
-      // 3. Check window.location.pathname (/c/<id>)
+      // 4. Check window.location.pathname (/c/<id>)
       const parts = window.location.pathname.split("/");
       const idx = parts.indexOf("c");
       if (idx !== -1 && parts[idx + 1]) {
         return parts[idx + 1];
       }
 
-      // 4. Any element with data-cascade-id inside main/chat area
+      // 5. Any element with data-cascade-id inside main/chat area
       const anyChat = document.querySelector("[data-cascade-id]");
       if (anyChat) {
         const id = anyChat.getAttribute("data-cascade-id");
@@ -264,6 +279,15 @@
     window.__AGY_LISTENER_SET__ = true;
     let lastId = null;
     let lastPath = window.location.pathname;
+
+    if (window.__TSR_ROUTER__ && typeof window.__TSR_ROUTER__.subscribe === "function") {
+      try {
+        window.__TSR_ROUTER__.subscribe(() => {
+          if (window.__AGY_RENDER__) window.__AGY_RENDER__();
+        });
+      } catch (_) {}
+    }
+
     setInterval(() => {
       const currentId = getActiveConvId();
       const currentPath = window.location.pathname;
@@ -272,7 +296,7 @@
         lastPath = currentPath;
         if (window.__AGY_RENDER__) window.__AGY_RENDER__();
       }
-    }, 150);
+    }, 100);
   }
 
   if (window.__AGY_RENDER__) {

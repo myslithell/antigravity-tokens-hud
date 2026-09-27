@@ -20,14 +20,21 @@ function getDevToolsFilePath() {
 
 const DEVTOOLS_FILE = getDevToolsFilePath();
 const TOKEN_STATS_SCRIPT = path.join(__dirname, "token_stats.py");
-const CLIENT_SCRIPT_PATH = path.join(__dirname, "client_widget.js");
+const CLIENT_SCRIPT_PATH = fs.existsSync(path.join(__dirname, "client_widget.js"))
+  ? path.join(__dirname, "client_widget.js")
+  : path.join(__dirname, "client_widget_injector.js");
 const CONFIG_FILE = path.join(__dirname, "config.json");
 
-let currentWs = null;
+let cdpMessageId = 1;
+function nextCdpId() {
+  cdpMessageId = (cdpMessageId + 1) & 0x7fffffff;
+  return cdpMessageId;
+}
+
+// Map of pageId -> { ws, injected: boolean, url: string }
+const activePages = new Map();
 let currentPort = null;
 let isUpdating = false;
-let lastUpdateAttempt = 0;
-let clientScriptInjected = false;
 
 function getConfigLang() {
   try {
@@ -50,20 +57,23 @@ function getDevToolsInfo() {
   return null;
 }
 
-async function findAntigravityPage(port) {
+async function listAntigravityPages(port) {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(1500) });
     const list = await res.json();
-    const page = list.find(p => p.type === "page" && p.url && (p.url.includes("127.0.0.1") || p.url.includes("localhost")));
-    return page || list.find(p => p.type === "page");
+    return list.filter(p => p.type === "page" && p.url && (p.url.includes("127.0.0.1") || p.url.includes("localhost") || p.url.includes("antigravity")));
   } catch (_) {
-    return null;
+    return [];
   }
 }
 
 function fetchTokenStats() {
   return new Promise((resolve) => {
-    execFile("python3", [TOKEN_STATS_SCRIPT, "--json"], { timeout: 3000 }, (err, stdout) => {
+    const env = {
+      ...process.env,
+      PATH: ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", process.env.PATH || ""].join(":")
+    };
+    execFile("python3", [TOKEN_STATS_SCRIPT, "--json"], { timeout: 3000, env }, (err, stdout) => {
       if (err || !stdout) {
         resolve(null);
         return;
@@ -77,43 +87,56 @@ function fetchTokenStats() {
   });
 }
 
-function connectWebSocket(wsUrl) {
+function connectPageWebSocket(page) {
   return new Promise((resolve) => {
     let resolved = false;
+    let ws = null;
     const timer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        try { ws.close(); } catch (_) {}
+        try { if (ws) ws.close(); } catch (_) {}
         resolve(null);
       }
     }, 2000);
 
-    let ws = null;
     try {
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(page.webSocketDebuggerUrl);
+      const entry = { ws, injected: false, pageId: page.id, url: page.url };
+
       ws.onopen = () => {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          clientScriptInjected = false;
-          resolve(ws);
+          activePages.set(page.id, entry);
+          resolve(entry);
         }
       };
-      ws.onmessage = () => {
-        // Drain incoming messages to avoid TCP buffer congestion
+
+      ws.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data.error) {
+            const msgText = data.error.message || "";
+            if (msgText.includes("execution context") || msgText.includes("detached") || msgText.includes("Target closed")) {
+              entry.injected = false;
+              try { ws.close(); } catch (_) {}
+              activePages.delete(page.id);
+            }
+          }
+        } catch (_) {}
       };
+
       ws.onerror = () => {
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
           resolve(null);
         }
+        activePages.delete(page.id);
       };
+
       ws.onclose = () => {
-        if (currentWs === ws) {
-          currentWs = null;
-          clientScriptInjected = false;
-        }
+        activePages.delete(page.id);
       };
     } catch (_) {
       if (!resolved) {
@@ -126,67 +149,74 @@ function connectWebSocket(wsUrl) {
 }
 
 async function updateLoop() {
-  const now = Date.now();
-  if (isUpdating) {
-    if (now - lastUpdateAttempt > 4000) {
-      if (currentWs) {
-        try { currentWs.close(); } catch (_) {}
-        currentWs = null;
-        clientScriptInjected = false;
-      }
-      isUpdating = false;
-    } else {
-      return;
-    }
-  }
-
+  if (isUpdating) return;
   isUpdating = true;
-  lastUpdateAttempt = now;
 
   try {
     const info = getDevToolsInfo();
     if (!info) {
-      if (currentWs) {
-        try { currentWs.close(); } catch (_) {}
-        currentWs = null;
-        clientScriptInjected = false;
+      for (const [id, entry] of activePages) {
+        try { entry.ws.close(); } catch (_) {}
       }
-      isUpdating = false;
+      activePages.clear();
       return;
     }
 
-    if (!currentWs || currentPort !== info.port || currentWs.readyState !== WebSocket.OPEN) {
+    if (currentPort !== info.port) {
       currentPort = info.port;
-      const page = await findAntigravityPage(currentPort);
-      if (!page || !page.webSocketDebuggerUrl) {
-        isUpdating = false;
-        return;
+      for (const [id, entry] of activePages) {
+        try { entry.ws.close(); } catch (_) {}
       }
+      activePages.clear();
+    }
 
-      currentWs = await connectWebSocket(page.webSocketDebuggerUrl);
-      if (!currentWs) {
-        isUpdating = false;
-        return;
+    const pages = await listAntigravityPages(currentPort);
+    const currentPageIds = new Set(pages.map(p => p.id));
+
+    // Remove dead pages
+    for (const [id, entry] of activePages) {
+      if (!currentPageIds.has(id)) {
+        try { entry.ws.close(); } catch (_) {}
+        activePages.delete(id);
       }
     }
 
-    const stats = await fetchTokenStats();
-    if (stats && currentWs && currentWs.readyState === WebSocket.OPEN) {
-      let clientScript = "";
-      try {
-        clientScript = fs.readFileSync(CLIENT_SCRIPT_PATH, "utf8");
-      } catch (_) {}
+    // Connect new pages
+    for (const page of pages) {
+      const existing = activePages.get(page.id);
+      if (!existing || existing.ws.readyState !== WebSocket.OPEN) {
+        if (existing) {
+          try { existing.ws.close(); } catch (_) {}
+          activePages.delete(page.id);
+        }
+        await connectPageWebSocket(page);
+      }
+    }
 
-      const lang = getConfigLang();
-      const payload = JSON.stringify(stats);
+    if (activePages.size === 0) return;
+
+    const stats = await fetchTokenStats();
+    if (!stats) return;
+
+    let clientScript = "";
+    try {
+      clientScript = fs.readFileSync(CLIENT_SCRIPT_PATH, "utf8");
+    } catch (_) {}
+
+    const lang = getConfigLang();
+    const payload = JSON.stringify(stats);
+
+    for (const [id, entry] of activePages) {
+      if (entry.ws.readyState !== WebSocket.OPEN) continue;
+
       let evalCode = "";
-      if (!clientScriptInjected) {
+      if (!entry.injected) {
         evalCode = `
           window.__AGY_DATA__ = ${payload};
           window.__AGY_LANG__ = ${JSON.stringify(lang)};
           ${clientScript}
         `;
-        clientScriptInjected = true;
+        entry.injected = true;
       } else {
         evalCode = `
           window.__AGY_DATA__ = ${payload};
@@ -199,8 +229,8 @@ async function updateLoop() {
         `;
       }
 
-      currentWs.send(JSON.stringify({
-        id: Date.now(),
+      entry.ws.send(JSON.stringify({
+        id: nextCdpId(),
         method: "Runtime.evaluate",
         params: {
           expression: evalCode,
@@ -209,16 +239,12 @@ async function updateLoop() {
       }));
     }
   } catch (_) {
-    if (currentWs) {
-      try { currentWs.close(); } catch (_) {}
-      currentWs = null;
-      clientScriptInjected = false;
-    }
+    // Non-fatal, retry next tick
   } finally {
     isUpdating = false;
   }
 }
 
 console.log("[Antigravity Tokens HUD] Daemon running. Monitoring Antigravity DevTools...");
-setInterval(updateLoop, 1500);
+setInterval(updateLoop, 1000);
 updateLoop();
