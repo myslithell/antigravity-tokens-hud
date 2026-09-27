@@ -5,79 +5,53 @@
 </p>
 
 <p align="center">
-  <b>Минималистичный статус-виджет контекста и лимитов для Google Antigravity 2.0.</b>
+  <b>Минималистичный виджет контекста и лимитов для Google Antigravity 2.0.</b>
   <br />
   <a href="README.md">🇬🇧 Read in English</a>
 </p>
 
 ---
 
-## ⚡ Что это такое?
+## ⚡ Что показывает
 
-**Antigravity Tokens HUD** встраивает аккуратный, лаконичный информер прямо в боковую панель Google Antigravity 2.0 (над кнопкой **Settings**):
+Виджет аккуратно встраивается в боковую панель прямо над кнопкой **Settings**:
 
-1. **Модель и контекст сессии**: Текущая загрузка окна контекста (например, `gemini-3.8-flash 2.7% (26k/1M)`), наполняющаяся слева направо в изумрудном цвете. Мгновенно переключается при смене чатов без задержек.
-2. **Остаток 5-часового лимита**: Официальный процент остатка квоты и точное время до сброса (например, `5-часовой 77% (3ч 50м)`), уменьшающийся в приглушенном сером цвете.
-3. **Остаток недельного лимита**: Официальный недельный остаток (например, `Недельный 96% (6д 22ч)`).
-
-Никаких лишних градиентов, миганий или отвлекающих элементов — всё выполнено строго в нативном стиле интерфейса.
-
----
-
-## 🎯 Требования
-
-- **[Google Antigravity 2.0](https://antigravity.google/download)**
-
-*(Все необходимые компоненты — Node.js 18+ и Python 3 — скрипт установки проверяет и устанавливает автоматически).*
+- **Контекст чата:** процент и объём токенов активной сессии (наполняется слева направо). Мгновенно обновляется при смене чатов.
+- **5-часовой лимит:** остаток квоты и таймер до сброса.
+- **Недельный лимит:** общий недельный остаток квоты.
+- **RU / EN:** клик по виджету мгновенно переключает язык.
 
 ---
 
-## 🚀 Быстрая установка в 1 команду (Русская версия)
+## 🚀 Установка в одну команду
+
+Все зависимости (Node.js и Python 3) проверяются и устанавливаются **автоматически**.
 
 ### macOS / Linux
-
-Вставьте в ваш терминал:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/install-ru.sh | bash
 ```
 
 ### Windows (PowerShell)
-
-Вставьте в окно PowerShell:
 ```powershell
 irm https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main/install-ru.ps1 | iex
 ```
 
-> **Готово!** Откройте Antigravity 2.0 — виджет уже работает над кнопкой Settings на русском языке. Клик по виджету переключает язык (RU / EN) в реальном времени.
-
----
-
-## 🛠 Ручная установка
-
-Если хотите склонировать и посмотреть код:
-
-```bash
-git clone https://github.com/myslithell/antigravity-tokens-hud.git
-cd antigravity-tokens-hud
-bash install-ru.sh
-```
+> **Готово!** Откройте Antigravity 2.0 — виджет уже работает над кнопкой Settings. Фоновая служба запускается автоматически вместе с системой.
 
 ---
 
 ## 🗑️ Удаление
 
-### macOS / Linux
-```bash
-~/.antigravity-tokens-hud/uninstall.sh
-```
+- **macOS / Linux:** `~/.antigravity-tokens-hud/uninstall.sh`
+- **Windows:** `powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.antigravity-tokens-hud\uninstall.ps1"`
 
-### Windows
-```powershell
-powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.antigravity-tokens-hud\uninstall.ps1"
-```
+---
+
+## 📢 Больше интересного тут:
+👉 [https://t.me/+vmtcTYAm2UdhNTFi](https://t.me/+vmtcTYAm2UdhNTFi)
 
 ---
 
 ## 📄 Лицензия
-
 MIT © [myslithell](https://github.com/myslithell)
