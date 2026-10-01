@@ -69,11 +69,12 @@ async function listAntigravityPages(port) {
 
 function fetchTokenStats() {
   return new Promise((resolve) => {
-    const env = {
-      ...process.env,
-      PATH: ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", process.env.PATH || ""].join(":")
-    };
-    execFile("python3", [TOKEN_STATS_SCRIPT, "--json"], { timeout: 3000, env }, (err, stdout) => {
+    const pythonBin = process.platform === "win32" ? "python" : "python3";
+    const env = { ...process.env };
+    if (process.platform !== "win32") {
+      env.PATH = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", process.env.PATH || ""].join(":");
+    }
+    execFile(pythonBin, [TOKEN_STATS_SCRIPT, "--json"], { timeout: 10000, env }, (err, stdout) => {
       if (err || !stdout) {
         resolve(null);
         return;

@@ -68,9 +68,16 @@ def collect_metrics(current_conv_id=None):
     all_records = []
     current_session = None
     latest_ts = 0
+    cutoff_ts = now_ts - (8 * 86400)
 
     for db_path in db_files:
         sess_id = os.path.basename(db_path).replace(".db", "")
+        if sess_id != current_conv_id:
+            try:
+                if os.path.getmtime(db_path) < cutoff_ts:
+                    continue
+            except OSError:
+                pass
         try:
             conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
             c = conn.cursor()

@@ -1,4 +1,4 @@
-# Antigravity Tokens HUD - Windows Installer
+﻿# Antigravity Tokens HUD - Windows Installer
 $ErrorActionPreference = "Stop"
 
 $RepoRawUrl = "https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main"
@@ -151,8 +151,8 @@ Set-Content -Path "$InstallDir\config.json" -Value '{"lang":"en"}'
 Write-Host "⚙️ Configuring Windows Startup..." -ForegroundColor Yellow
 $startupFolder = [Environment]::GetFolderPath("Startup")
 $vbsPath = "$startupFolder\antigravity-tokens-hud.vbs"
-$vbsContent = "CreateObject(`"Wscript.Shell`").Run `"node `"`" & `"$InstallDir\index.js`" & `"`"`, 0, True"
-[System.IO.File]::WriteAllText($vbsPath, $vbsContent)
+$vbsContent = "CreateObject(`"Wscript.Shell`").Run `"node `"`"$InstallDir\index.js`"`"`, 0, False"
+[System.IO.File]::WriteAllText($vbsPath, $vbsContent, [System.Text.Encoding]::UTF8)
 
 # Start process now
 Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`""
