@@ -1,4 +1,4 @@
-﻿# Antigravity Tokens HUD - Windows Installer
+# Antigravity Tokens HUD - Windows Installer
 $ErrorActionPreference = "Stop"
 
 $RepoRawUrl = "https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main"
@@ -151,14 +151,30 @@ Set-Content -Path "$InstallDir\config.json" -Value '{"lang":"en"}'
 Write-Host "⚙️ Configuring Windows Startup..." -ForegroundColor Yellow
 $startupFolder = [Environment]::GetFolderPath("Startup")
 $vbsPath = "$startupFolder\antigravity-tokens-hud.vbs"
-$vbsContent = "CreateObject(`"Wscript.Shell`").Run `"node `"`"$InstallDir\index.js`"`"`, 0, False"
+$vbsContent = "CreateObject(`"Wscript.Shell`").Run `"node `"`"$InstallDir\index.js`"`"`"`, 0, False"
 [System.IO.File]::WriteAllText($vbsPath, $vbsContent, [System.Text.Encoding]::UTF8)
 
 # Start process now
 Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`""
 
-Write-Host ""
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host "🎉 SUCCESS! Antigravity Tokens HUD is ready!" -ForegroundColor Green
-Write-Host "✨ Open Antigravity 2.0 — HUD is active above Settings." -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
+# Verify background process is running
+Start-Sleep -Seconds 2
+$running = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+    $_.Name -like "*node*" -and $_.CommandLine -like "*antigravity-tokens-hud*"
+}
+if (-not $running) {
+    $running = Get-Process node -ErrorAction SilentlyContinue
+}
+
+if ($running) {
+    Write-Host ""
+    Write-Host "==========================================" -ForegroundColor Green
+    Write-Host "🎉 SUCCESS! Antigravity Tokens HUD is ready!" -ForegroundColor Green
+    Write-Host "✨ Open Antigravity 2.0 — HUD is active above Settings." -ForegroundColor Green
+    Write-Host "==========================================" -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "⚠️ Warning: HUD background process did not start automatically." -ForegroundColor Yellow
+    Write-Host "👉 You can launch it manually: node `"$InstallDir\index.js`"" -ForegroundColor Yellow
+}
+

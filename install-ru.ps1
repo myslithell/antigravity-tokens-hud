@@ -1,4 +1,5 @@
-﻿# Antigravity Tokens HUD - Windows Установщик (Русская версия)
+# Antigravity Tokens HUD - Windows Установщик (Русская версия)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
 $RepoRawUrl = "https://raw.githubusercontent.com/myslithell/antigravity-tokens-hud/main"
@@ -151,14 +152,30 @@ Set-Content -Path "$InstallDir\config.json" -Value '{"lang":"ru"}'
 Write-Host "⚙️ Настройка автозапуска..." -ForegroundColor Yellow
 $startupFolder = [Environment]::GetFolderPath("Startup")
 $vbsPath = "$startupFolder\antigravity-tokens-hud.vbs"
-$vbsContent = "CreateObject(`"Wscript.Shell`").Run `"node `"`"$InstallDir\index.js`"`"`, 0, False"
+$vbsContent = "CreateObject(`"Wscript.Shell`").Run `"node `"`"$InstallDir\index.js`"`"`"`, 0, False"
 [System.IO.File]::WriteAllText($vbsPath, $vbsContent, [System.Text.Encoding]::UTF8)
 
 Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`""
 
-Write-Host ""
-Write-Host "==========================================" -ForegroundColor Green
-Write-Host "🎉 УСПЕШНО! Antigravity Tokens HUD установлен!" -ForegroundColor Green
-Write-Host "✨ Откройте Antigravity 2.0 — виджет активен над Settings." -ForegroundColor Green
-Write-Host "💡 Клик по виджету переключает язык (RU / EN) на лету." -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
+# Проверка запуска процесса
+Start-Sleep -Seconds 2
+$running = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+    $_.Name -like "*node*" -and $_.CommandLine -like "*antigravity-tokens-hud*"
+}
+if (-not $running) {
+    $running = Get-Process node -ErrorAction SilentlyContinue
+}
+
+if ($running) {
+    Write-Host ""
+    Write-Host "==========================================" -ForegroundColor Green
+    Write-Host "🎉 УСПЕШНО! Antigravity Tokens HUD установлен!" -ForegroundColor Green
+    Write-Host "✨ Откройте Antigravity 2.0 — виджет активен над Settings." -ForegroundColor Green
+    Write-Host "💡 Клик по виджету переключает язык (RU / EN) на лету." -ForegroundColor Green
+    Write-Host "==========================================" -ForegroundColor Green
+} else {
+    Write-Host ""
+    Write-Host "⚠️ Внимание: фоновый процесс HUD не запустился автоматически." -ForegroundColor Yellow
+    Write-Host "👉 Запустите вручную для проверки: node `"$InstallDir\index.js`"" -ForegroundColor Yellow
+}
+

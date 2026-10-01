@@ -1,4 +1,4 @@
-﻿# Antigravity Tokens HUD - Windows Uninstaller
+# Antigravity Tokens HUD - Windows Uninstaller
 $ErrorActionPreference = "SilentlyContinue"
 
 Write-Host "🛑 Uninstalling Antigravity Tokens HUD..." -ForegroundColor Yellow
