@@ -1,14 +1,25 @@
-# OS & Logs
-.DS_Store
-*.log
-*.err.log
-*.tmp
-
 # Dependencies
 node_modules/
 
-# Secrets
-.env
-.env.*
-*.key
-*.pem
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary / testing scripts
+archive/
+test_*.js
+scratch_*.js
+verify_*.js
+*.tmp
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE configs
+.vscode/
+.idea/
+*.exe
